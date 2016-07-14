@@ -1,0 +1,1 @@
+CREATE VIEW `scan_7day_device` AS
