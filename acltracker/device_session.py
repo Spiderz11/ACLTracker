@@ -102,9 +102,9 @@ class Device_Session:
 		out = ''
 		if self.send_command('\n'):
 			output = self.recv_small_buffer()
-			out = output.decode('utf-8')
-			output = re.search('^[A-Z,a-z,0-9,\-,/]+', out, re.MULTILINE)
-			return output.group(0)
+			output = output.strip()
+			out = re.search('^[A-Z,a-z,0-9,\-,/]+', output, re.MULTILINE)
+			return out.group(0)
 		else:
 			return None
 
@@ -162,19 +162,20 @@ class Device_Session:
 			logging.warning('Command used: ' + command)
 			return False
 		else:
-			return output
+			return (True,output)
 
-			
+
 	def get_acl_brief(self, acl_name):
 		self.clear_buffer()
 		command = 'show access-list ' + acl_name + ' brief\n'
 		self.send_command(command)
-		timeout,output = self.recv_large_buffer(Decimal(1.5))
+		timeout,output = self.recv_large_buffer(Decimal(1.5)) #TBH - Need to add timeout to return to update device timeout.
 		if self.check_command_error(output):
 			logging.warning('Command used: ' + command)
 			return False
 		else:
-			return output
+			#Nate pick up from here.
+			return (True,output)
 		
 
 		# Checking for the '#' symbol to indicate access level

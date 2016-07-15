@@ -36,7 +36,7 @@ class ACL_DB:
 		for i in acl_obj_ls:
 			#get dict from acl obj
 			acl_dict = i.get_acl_dict()
-			if acl_dict['Type'] != None:
+			if acl_dict['Type'] != None and acl_dict['line'] != None and acl_dict['id'] != None:
 				result = self.__insert_acl__(acl_dict)
 				if result == 1:
 					ii_good += 1
@@ -51,6 +51,11 @@ class ACL_DB:
 		count = {'Total':len(acl_obj_ls), 'Inserted': ii_good, 'Rejected': ii_bad, 'Unknown': ii_unknown}
 		return count
 
+	def add_acl_name_ls(self, acl_names_ls, dev_id):
+		for n in acl_names_ls:
+			self.__insert_acl_names__({'acl_name': n,'iddevice':dev_id})
+		self.connection.commit()
+
 	def add_device(self,ls_ip):
 		for ip in ls_ip:
 			self.__insert_device__(ip)
@@ -60,6 +65,12 @@ class ACL_DB:
 		if dev['host_name'] != None:
 			args = [dev['ip'],dev['iddevice'],dev['host_name']]
 			self.cursor.callproc('update_device_hostname',args)
+			self.connection.commit()
+
+	def update_device_conn_status(self,dev):
+		args = [dev['fk_conn_status'], dev['ip'],dev['iddevice']]
+		self.cursor.callproc('update_device_conn_status',args)
+		self.connection.commit()
 
 	#Fix - Work on views in mysql to handle device returns
 	def get_good_devices(self):
@@ -73,12 +84,23 @@ class ACL_DB:
 			all_devices = None
 			return all_devices
 
+	def get_acl_names(self, device):
+		stmt = "SELECT * FROM acl_names where fk_device = " + device['iddevice']
+		try:
+			self.cursor.execute(stmt)
+			all_names = self.cursor.fetchall()
+			return all_names
+		except mysql.connector.Error as err:
+			logging.warning('There was an issue encountered: {}'.format(err))
+			all_names = None
+			return all_names
+
 	#Fix - Once DB design settles down fix acl dict frame for full
-	def get_acl_dict(self, full = False):
+	def get_acl_dct(self, full = False):
 		if full:
-			acl_dict = {'ACL': None, 'Hits': None, 'Device': None, 'ID': None, 'Type': None}
+			acl_dict = {'ACL': None,'line': None, 'Hits': None, 'Device': None, 'id': None, 'Type': None}
 		else:
-			acl_dict = {'ACL': None, 'Hits': None, 'Device': None, 'ID': None, 'Type': None}
+			acl_dict = {'ACL': None, 'Hits': None, 'Device': None, 'id': None, 'Type': None}
 
 # Example of raw acl: 
 # {'ACL': 'access-list acl-inbound line 17 extended permit ip host 172.30.56.250 10.16.0.0 255.255.0.0 log informational interval 300 (hitcnt=0) 0xf44c609d', 'Hits': 0, 'Device': 1, 'ID': '0xf44c609d', 'Type': 'ACL_entry'}
@@ -86,20 +108,18 @@ class ACL_DB:
 
 # Example update_acl(in in_acl varchar(400), in in_hash varchar(45), in in_hit int(4), in in_device int(2), in in_type varchar(45))
 	def __insert_acl__(self, acl_dict):
-		args = [acl_dict['ACL'],acl_dict['Device'], acl_dict['Type'], acl_dict['ID']]
+		args = [acl_dict['ACL'],acl_dict['line'],acl_dict['Device'], acl_dict['Type'], acl_dict['id']]
 		result = self.cursor.callproc('add_record', args)
 		return result
 
 	def __insert_device__(self,ip):
 		args = [ip]
 		self.cursor.callproc('add_device', args)
-		
+
 	def __insert_acl_names__(self, acl_names):
-		args = [acl_names['acl_name'],acl_names['iddevice']
+		args = [acl_names['acl_name'],acl_names['iddevice']]
+		self.cursor.callproc('add_acl_names',args)
 
-	def insert_rec(self,stmt,data):
+	def insert_rec(self, stmt, data):
 		self.cursor.execute(stmt,data)
-		return result
-
-
- 
+		return result 
