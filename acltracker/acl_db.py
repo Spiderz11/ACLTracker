@@ -32,10 +32,10 @@ class ACL_DB:
 		ii_good = 0
 		ii_bad = 0
 		ii_unknown = 0
-		type(acl_obj_ls)
 		for i in acl_obj_ls:
 			#get dict from acl obj
-			acl_dict = i.get_acl_dict()
+			print(i)
+			acl_dict = i.get_hc_dict()
 			if acl_dict['Type'] != None and acl_dict['line'] != None and acl_dict['id'] != None:
 				result = self.__insert_acl__(acl_dict)
 				if result == 1:
@@ -46,10 +46,19 @@ class ACL_DB:
 					ii_unknown += 1
 			else: 
 				ii_bad += 1
-				print(acl_dict)
+				logging.warning(i)
 		self.connection.commit()
 		count = {'Total':len(acl_obj_ls), 'Inserted': ii_good, 'Rejected': ii_bad, 'Unknown': ii_unknown}
 		return count
+
+	def add_hcObj_ls(self, hc_obj_ls):
+		ii_all = len(hc_obj_ls)
+		ii = 0
+		for hc in hc_obj_ls:
+			hc_dict = hc.get_hc_dict()
+			if hc_dict['fk_device']:
+				self.__insert_hc__(hc_dict)
+		self.connection.commit()
 
 	def add_acl_name_ls(self, acl_names_ls, dev_id):
 		for n in acl_names_ls:
@@ -85,7 +94,7 @@ class ACL_DB:
 			return all_devices
 
 	def get_acl_names(self, device):
-		stmt = "SELECT * FROM acl_names where fk_device = " + device['iddevice']
+		stmt = "SELECT * FROM acl_names where fk_device = %d" % device['iddevice']
 		try:
 			self.cursor.execute(stmt)
 			all_names = self.cursor.fetchall()
@@ -119,6 +128,12 @@ class ACL_DB:
 	def __insert_acl_names__(self, acl_names):
 		args = [acl_names['acl_name'],acl_names['iddevice']]
 		self.cursor.callproc('add_acl_names',args)
+	
+	#(in in_rule_uid varchar(45), in in_parent_uid varchar(45), in in_hit_count varchar(45), in in_last_hit_date varchar(45), in in_hit_status int, in in_dev int)
+	# {'rule_uid': , 'parent_uid': , 'hit_count': ,'last_hit_date': , 'fk_hitcount_status': , 'fk_device': }
+	def __insert_hc__(self,hc):
+		args = [hc['rule_uid'],hc['parent_uid'],hc['hit_count'],hc['last_hit_date'],hc['fk_hitcount_status'], hc['fk_device']]
+		self.cursor.callproc('add_hit_count',args)
 
 	def insert_rec(self, stmt, data):
 		self.cursor.execute(stmt,data)

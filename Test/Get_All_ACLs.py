@@ -28,13 +28,14 @@ def inventory_device_hitcount():
 		device_list = [{'host_name': 'BIG-Site/admin', 'ip': '10.20.0.1', 'model': None, 'fk_conn_status': 1, 'iddevice': 121, 'checked': None, 'manufactor': None, 'fk_device_status': 1, 'fk_conn_type': 1},
 			{'host_name': 'BIG-Site/admin', 'ip': '10.20.0.1', 'model': None, 'fk_conn_status': 1, 'iddevice': 121, 'checked': None, 'manufactor': None, 'fk_device_status': 1, 'fk_conn_type': 1}]
 		for dev in device_list:
-			acl_name = cursor.get_acl_names(dev['ip'])
-			get_hit_counters(dev['ip'],acl_name)
+			acl_name = cursor.get_acl_names(dev['iddevice'])
+			get_hit_counters(dev,acl_name)
 			
 	else:
 		device_list = cursor.get_good_devices()
 		for dev in device_list:
-			get_inventory(dev)
+			ls_full = cursor.get_acl_names(dev)
+			get_hit_counters(dev, ls_full)
 
 def get_inventory(dev):
 	if dev['host_name'] == None:
@@ -57,7 +58,7 @@ def get_inventory(dev):
 				if session.disable_paging():
 					timeout,output = session.get_acls()
 					#return is cleaned up list of acl strings
-					acl_str = acl.parse_str_acls(output)
+					acl_str = acl.parse_buffer_strs(output)
 					acl_names = acl.parse_acl_names(acl_str)
 					#return in list of ACL obj
 					acl_obj = acl.imp_ls_acls(acl_str, dev['iddevice'])
@@ -74,7 +75,7 @@ def get_inventory(dev):
 			if session.disable_paging():
 				timeout,output = session.get_acls()
 				#return is cleaned up list of acl strings
-				acl_str = acl.parse_str_acls(output)
+				acl_str = acl.parse_buffer_strs(output)
 				#return in list of ACL obj
 				acl_obj = acl.imp_ls_acls(acl_str, dev['iddevice'])
 				results = cursor.add_aclObj_ls(acl_obj)
@@ -108,9 +109,8 @@ def get_hit_counters(dev,ls_name): #Nate pickup from here.
 	else:
 		logging.info('Starting: ' + dev['host_name'] + ' - Inventory All')
 		logging.info(datetime.datetime.now())
-
 	session = device_session.Device_Session(dev,user,password)#Need to address from DB or input
-	if dev_connect():
+	if session.connect_client():
 		session.clear_buffer()
 		session.send_command('\n')
 		output = session.recv_small_buffer()
@@ -119,29 +119,28 @@ def get_hit_counters(dev,ls_name): #Nate pickup from here.
 				#Paging goes back to the way it was once you disconnect
 				if session.disable_paging():
 					for name in ls_name:
-						output = session.get_acl_brief(acl_name)
+						timeout,output = session.get_acl_brief(name['list_name'])
 						#return is cleaned up list of hit strings
-						hit_str = acl.parse_str_acls(output)
+						ls_hit_str = acl.parse_buffer_strs(output)
 						#return in list of HitCount obj
-						hit_obj = acl.imp_ls_hits(hit_str)
-						results = cursor.add_aclObj_ls(hit_obj)
+						hit_obj = acl.imp_ls_hits(dev['iddevice'],ls_hit_str)
+						results = cursor.add_hcObj_ls(hit_obj)
 				else:
 					results = False
 		else:
 			if session.disable_paging():
-				output = session.get_acl_brief(acl_name)
-				#return is cleaned up list of hit strings
-				hit_str = acl.parse_str_acls(output)
-				#return in list of HitCount obj
-				hit_obj = acl.imp_ls_hits(hit_str)
-				results = cursor.add_aclObj_ls(hit_obj)
+				for name in ls_name:
+					output = session.get_acl_brief(name)
+					#return is cleaned up list of hit strings
+					ls_hit_str = acl.parse_buffer_strs(output)
+					#return in list of HitCount obj
+					hit_obj = acl.imp_ls_hits(ls_hit_str)
+					results = cursor.add_aclObj_ls(hit_obj)
 			else:
 				results = False
 			
 		
-		print(results)
-	else:
-		logging.warning('Connection could not be established. Task complete')
+	print(results)
 	if dev['host_name'] == None:
 		logging.info('Stopping: ' + dev['ip'] + ' - Hit Counters')
 		logging.info(datetime.datetime.now())
@@ -163,7 +162,7 @@ results = ''
 test = False
 
 #inventory_devices()
-get_hit_counters()
+inventory_device_hitcount()
 print(datetime.datetime.now())
 
 

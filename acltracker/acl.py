@@ -104,8 +104,17 @@ class ACL:
 
 
 #Class based on cisco's brief access-list
+#Example of DB return of HitCount Obj.
+#{'rule_uid': None, 'parent_uid': None, 'hit_count':None, 'last_hit_date':None, 'fk_hitcount_status':None, 'fk_device': None}
 class HitCount:
-	def __init__(self, str_full = None,dct_full = None):
+	def __init__(self, dev, str_full = None, dct_full = None):
+		check = re.split(' ',str_full)
+		temp = ''
+		for i in check:
+			t = self.validate_hex(i)
+			if not t:
+				str_full = None
+				break
 		if str_full != None:
 			self.org_str = str_full
 			self.acl_id = None
@@ -113,84 +122,89 @@ class HitCount:
 			self.hit_count = None
 			self.ls_hex_date = None
 			self.lh_date = None
-			self.parse_shitcount(str_full)
+			self.hit_status = None
+			self.device = dev
+			self.parse_str(str_full)
 		elif dct_full != None:
-			self.org_str = '%s %s %s %s' % (dct_full['acl_id'],dct_full['acl_parent'],dct_full['hit_count'],dct_full['ls_hex_date'])
+			self.org_str = '%s %s %s %s' % (dct_full['rule_uid'],dct_full['parent_uid'],dct_full['hit_count'],dct_full['last_hit_date'])
+			self.acl_id = self.validate_hex(dct_full['rule_id'])
+			self.acl_parent = self.validate_hex(dct_full['parent_uid'])
+			self.hit_count = self.validate_hex(dct_full['hit_count'])
+			self.ls_hex_date = self.validate_hex(dct_full['last_hit_date'])
+			self.lh_date = self.shex_to_date(dct_full['last_hit_date'])
+			self.hit_status = dct_full['fk_hitcount_status']
+			self.device = dct_full['fk_device']
+		else:
 			self.acl_id = None
 			self.acl_parent = None
 			self.hit_count = None
 			self.ls_hex_date = None
-			self.lh_date = None
-			self.parse_dhitcount(dct_full)
 
 
 #Sets all based on string
-	def parse_shitcount(sHC):
+	def parse_str(self,sHC):
 		ls_hex = re.split(' ',sHC)
-		if validate_hex(ls_hex):
-			self.acl_id = ls_hex[0]
-			self.acl_parent = ls_hex[1]
-			self.hit_count = str_to_hex(ls_hex[2])
-			self.ls_hex_date = ls_hex[3]
-			self.lh_date = shex_to_date(ls_hex[3])
+		if len(ls_hex) == 4:
+			self.acl_id = self.validate_hex(ls_hex[0])
+			self.acl_parent = self.validate_hex(ls_hex[1])
+			self.hit_count = self.validate_hex(ls_hex[2])
+			self.last_hex_date = self.validate_hex(ls_hex[3])
+			self.lh_date = self.shex_to_date(ls_hex[3])
 			
 			
-	def parse_dhitcount(dHC):
-		if validate_hex(dct_full):
-			self.acl_id = dct_full['acl_id']
-			self.acl_parent = dct_full['acl_parent']
-			self.hit_count = str_to_hex(dct_full['hit_count'])
-			self.ls_hex_date = dct_full['ls_hex_date']
-			self.lh_date = shex_to_date()
+	def parse_dhitcount(self,dHC):
+		if self.validate_hex(dct_full):
+			self.acl_id = self.validate_hex(dct_full['acl_id'])
+			self.acl_parent = self.validate_hex(dct_full['acl_parent'])
+			self.hit_count = self.validate_hex(dct_full['hit_count'])
+			self.ls_hex_date = self.validate_hex(dct_full['ls_hex_date'])
+			self.lh_date = self.shex_to_date()
 
-	def shex_to_date(h):
-		t = datetime.datetime.fromtimestamp(shex_to_float(h))
+	def shex_to_date(self,h):
+		t = datetime.datetime.fromtimestamp(self.shex_to_float(h))
 		tt = t.strftime("%Y-%m-%d %H:%M:%S")
 		return tt
 
-	def shex_to_float(str):
+	def shex_to_float(self,str):
 		f = float(int(str,16))
 		return f
 
-	def validate_hex(str = None, dct_full=None):
-		if dct_full == None:
+	def validate_hex(self,str):
+		if str != None:
 			if re.match('^[A-F,a-f,0-9,X,x]{8}',str):
-				return True
+				return str
 			else:
-				return False
-		else:
-			for i in dct_full:
-				if not validate_hex(str = i):
-					return False
-			return True
-
+				return None
 
 #hex string to Hex value
-	def str_to_hex(str):
+	def str_to_hex(self,str):
 		h = hex(int(str,16))
 		return h
 
+	def get_hc_dict(self):
+		d = {'rule_uid': self.acl_id, 'parent_uid': self.acl_parent,
+			'hit_count':self.hit_count, 'last_hit_date':self.last_hex_date,
+			'fk_hitcount_status':self.hit_status, 'fk_device': self.device}
+		return d
+
+
 #*** acl methods on mass import ***
 #Returns list of acls objects cleaned up
-def parse_str_acls(buf_str):
-	ls_acls = buf_str.split('\r\n')
-	for i in range(0,len(ls_acls)):
-		ls_acls[i] = ls_acls[i].strip()
-	print(len(ls_acls))
-	return ls_acls
-	
+def parse_buffer_strs(buf_str):
+	ls_strs = buf_str.split('\r\n')
+	for i in range(0,len(ls_strs)):
+		ls_strs[i] = ls_strs[i].strip()
+	return ls_strs
+
 #Returns a list of acl names on a device. Limit one device parse per call.
 def parse_acl_names(ls_acl):
 	ls_m = []
 	ls_s = []
 	for i in ls_acl:
-		ls_m.append((re.search('access-list [A-Z,a-z,0-9,\-]+', i)))
-	for i in ls_m:
-		if i != None:
-			temp = re.split(' ',i.group(0))
-			if temp[1] not in ls_s:
-				ls_s.append(temp[1])
-	return ls_s
+		m = re.search('access-list ([A-Z,a-z,0-9,\-]+)', i)
+		if m:
+			ls_m.append(m.group(1))
+	return ls_m
 
 # Returns list of ACL objects (dict)
 def imp_ls_acls(ls_acl, device_id):
@@ -201,9 +215,10 @@ def imp_ls_acls(ls_acl, device_id):
 	return ls_acl_objs
 
 #Returns list of HitCount (dict)
-def imp_ls_hits(ls_hit):
+def imp_ls_hits(dev,ls_hit):
 	ls_hit_objs = list()
 	for s_hit in ls_hit:
-		a = HitCount(str_full= s_hit)
-		ls_hit_objs.append(a)
+		a = HitCount(dev,str_full= s_hit)
+		if a and a.acl_id:
+			ls_hit_objs.append(a)
 	return ls_hit_objs

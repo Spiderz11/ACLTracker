@@ -172,11 +172,15 @@ class Device_Session:
 		timeout,output = self.recv_large_buffer(Decimal(1.5)) #TBH - Need to add timeout to return to update device timeout.
 		if self.check_command_error(output):
 			logging.warning('Command used: ' + command)
-			return False
+			if timeout:
+				return (True, output)
+			else:
+				return (False, output)
 		else:
-			#Nate pick up from here.
-			return (True,output)
-		
+			if timeout:
+				return (True,output)
+			else:
+				return (False, output)
 
 		# Checking for the '#' symbol to indicate access level
 	def check_prompt(self,output):
