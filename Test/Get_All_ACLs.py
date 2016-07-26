@@ -16,7 +16,7 @@ def inventory_devices():
 		for dev in device_list:
 			get_inventory(dev)
 	else:
-		device_list = cursor.get_good_devices()
+		device_list = cursor.get_devices_weekscan()
 		for dev in device_list:
 			get_inventory(dev)
 
@@ -123,8 +123,8 @@ def get_hit_counters(dev,ls_name): #Nate pickup from here.
 						#return is cleaned up list of hit strings
 						ls_hit_str = acl.parse_buffer_strs(output)
 						#return in list of HitCount obj
-						hit_obj = acl.imp_ls_hits(dev['iddevice'],ls_hit_str)
-						results = cursor.add_hcObj_ls(hit_obj)
+						hit_obj = acl.imp_ls_hits_str(dev['iddevice'],ls_hit_str,name['list_name'])
+						results = cursor.add_hcObj_ls(dev['iddevice'],name['list_name'],hit_obj)
 				else:
 					results = False
 		else:
@@ -134,8 +134,8 @@ def get_hit_counters(dev,ls_name): #Nate pickup from here.
 					#return is cleaned up list of hit strings
 					ls_hit_str = acl.parse_buffer_strs(output)
 					#return in list of HitCount obj
-					hit_obj = acl.imp_ls_hits(ls_hit_str)
-					results = cursor.add_aclObj_ls(hit_obj)
+					hit_obj = acl.imp_ls_hits_str(dev['iddevice'],ls_hit_str,name)
+					results = cursor.add_hcObj_ls(dev['iddevice'],name['list_name'], hit_obj)
 			else:
 				results = False
 			
